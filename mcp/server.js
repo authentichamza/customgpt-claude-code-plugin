@@ -516,13 +516,17 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         // Fetch counts for each index_status via the pages API
         const statuses = ["ok", "queued", "failed", "limited", "n/a"];
         const counts = {};
+        const agentRes = await cgFetch(`/projects/${a.agent_id}`);
+        if (!agentRes.ok) return fail(agentRes);
+        const agentData = agentRes.body?.data || {};
         for (const s of statuses) {
           const r = await cgFetch(`/projects/${a.agent_id}/pages?page=1&limit=1&index_status=${s}`);
-          counts[s] = r.ok ? (r.body?.data?.total ?? 0) : 0;
+          counts[s] = r.ok ? (r.body?.data?.pages?.total ?? 0) : 0;
         }
         const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
         const ready = counts.queued === 0 && total > 0;
         return ok({
+          is_chat_active: agentData?.is_chat_active,
           status: ready ? "ready" : counts.queued > 0 ? "indexing" : total === 0 ? "empty" : "unknown",
           ready,
           total,
