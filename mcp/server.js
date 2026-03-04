@@ -513,14 +513,23 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
       // ── index_status ─────────────────────────────────────────────────────
       case "index_status": {
-        const r = await cgFetch(`/projects/${a.agent_id}`);
-        if (!r.ok) return fail(r);
-        const d = r.body?.data || {};
+        // Fetch counts for each index_status via the pages API
+        const statuses = ["ok", "queued", "failed", "limited", "n/a"];
+        const counts = {};
+        for (const s of statuses) {
+          const r = await cgFetch(`/projects/${a.agent_id}/pages?page=1&limit=1&index_status=${s}`);
+          counts[s] = r.ok ? (r.body?.data?.total ?? 0) : 0;
+        }
+        const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
+        const ready = counts.queued === 0 && total > 0;
         return ok({
-          status: d.index_status || "unknown",
-          pages_count: d.pages_count,
-          is_chat_active: d.is_chat_active,
-          ready: d.index_status === "completed" || d.is_chat_active === 1,
+          status: ready ? "ready" : counts.queued > 0 ? "indexing" : total === 0 ? "empty" : "unknown",
+          ready,
+          total,
+          ok: counts["ok"],
+          queued: counts["queued"],
+          failed: counts["failed"],
+          limited: counts["limited"],
         });
       }
 
