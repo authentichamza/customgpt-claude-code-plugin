@@ -1,0 +1,31 @@
+{
+  "name": "customgpt-claude-code-plugin",
+  "owner": {
+    "name": "CustomGPT.ai",
+    "email": "support@customgpt.ai"
+  },
+  "metadata": {
+    "description": "CustomGPT.ai RAG Search plugin for Claude Code",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "rag-search",
+      "source": "./",
+      "description": "Semantic search over your entire repo or document set using CustomGPT.ai RAG. Index code, PDFs, transcripts, and business docs — then query in plain language from inside Claude Code.",
+      "version": "1.0.0",
+      "author": {
+        "name": "CustomGPT.ai"
+      },
+      "category": "development",
+      "keywords": [
+        "rag",
+        "search",
+        "mcp",
+        "customgpt",
+        "semantic-search",
+        "vector-search"
+      ]
+    }
+  ]
+}
