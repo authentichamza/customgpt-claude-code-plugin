@@ -1,0 +1,21 @@
+{
+  "name": "rag-search",
+  "version": "1.0.0",
+  "description": "Semantic search over your entire repo or document set using CustomGPT.ai RAG. Index code, PDFs, transcripts, and business docs — then query in plain language from inside Claude Code.",
+  "author": "CustomGPT.ai",
+  "license": "MIT",
+  "repository": "https://github.com/customgpt-ai/claude-code-plugin",
+  "skills": [
+    {
+      "name": "rag-search",
+      "path": "skills/rag-search.md"
+    }
+  ],
+  "hooks": [
+    {
+      "event": "PostToolUse",
+      "path": "hooks/post-tool-use.sh"
+    }
+  ],
+  "mcp": ".mcp.json"
+}

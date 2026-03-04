@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "rag-search": {
+      "command": "node",
+      "args": ["${PLUGIN_DIR}/mcp/server.js"],
+      "env": {
+        "CUSTOMGPT_API_KEY": "${CUSTOMGPT_API_KEY}"
+      }
+    }
+  }
+}

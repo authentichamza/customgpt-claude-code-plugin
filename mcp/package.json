@@ -1,0 +1,16 @@
+{
+  "name": "rag-search-mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "MCP server for CustomGPT.ai RAG Search Claude Code plugin",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "form-data": "^4.0.0",
+    "ignore": "^5.3.1",
+    "node-fetch": "^3.3.2"
+  }
+}
