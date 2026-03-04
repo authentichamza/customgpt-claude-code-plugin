@@ -279,6 +279,29 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: { type: "object", properties: {} },
     },
 
+    // ── Agent management ─────────────────────────────────────────────────
+    {
+      name: "list_agents",
+      description: "List all CustomGPT.ai agents in your account. Useful when switching between projects.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          page: { type: "number", description: "Page number (default 1)." },
+        },
+      },
+    },
+    {
+      name: "delete_agent",
+      description: "Permanently delete a CustomGPT.ai agent and all its data (knowledge base, conversations, settings). Irreversible.",
+      inputSchema: {
+        type: "object",
+        required: ["agent_id"],
+        properties: {
+          agent_id: { type: "number" },
+        },
+      },
+    },
+
     // ── Agent lookup / creation ───────────────────────────────────────────
     {
       name: "get_agent",
@@ -343,7 +366,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "refresh_index",
-      description: "Delete ALL indexed documents from the agent and re-index from scratch. Use when files have changed significantly.",
+      description: "Re-index files under start_path: deletes only the pages for those files, then re-uploads them. Use when files have changed and you want search results to stay current.",
       inputSchema: {
         type: "object",
         required: ["repo_root", "agent_id", "start_path"],
@@ -371,6 +394,183 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             items: { type: "string" },
             description: "Absolute paths to files or folders to add.",
           },
+        },
+      },
+    },
+
+    // ── Settings ──────────────────────────────────────────────────────────
+    {
+      name: "get_settings",
+      description: "Get the current settings of a CustomGPT.ai agent (persona, colors, citations, UI strings, starter questions, etc.).",
+      inputSchema: {
+        type: "object",
+        required: ["agent_id"],
+        properties: {
+          agent_id: { type: "number" },
+        },
+      },
+    },
+    {
+      name: "update_settings",
+      description: "Update agent settings. Only provide fields you want to change. Supports persona_instructions, chatbot_color, chatbot_toolbar_color, default_prompt, example_questions, enable_citations, enable_feedbacks, citations_view_type, response_source, chatbot_msg_lang, and more.",
+      inputSchema: {
+        type: "object",
+        required: ["agent_id"],
+        properties: {
+          agent_id: { type: "number" },
+          persona_instructions:          { type: "string", description: "AI persona/behavior instructions (max 12000 chars)." },
+          default_prompt:                { type: "string", description: "Placeholder text in the chat input (max 255 chars)." },
+          example_questions:             { type: "array", items: { type: "string" }, description: "Starter questions shown to users." },
+          chatbot_color:                 { type: "string", description: "Main chatbot color (hex, e.g. '#FF5733')." },
+          chatbot_toolbar_color:         { type: "string", description: "Toolbar color (hex)." },
+          response_source:               { type: "string", enum: ["default", "own_content", "openai_content"] },
+          chatbot_msg_lang:              { type: "string", description: "Language code for chatbot messages." },
+          enable_citations:              { type: "number", enum: [0, 1, 2, 3], description: "0=off, 1=after response, 2=inline refs, 3=both." },
+          enable_feedbacks:              { type: "boolean" },
+          citations_view_type:           { type: "string", enum: ["user", "show", "hide"] },
+          image_citation_display:        { type: "string", enum: ["default", "first_only"] },
+          citations_answer_source_label_msg: { type: "string" },
+          citations_sources_label_msg:   { type: "string" },
+        },
+      },
+    },
+
+    // ── Pages ─────────────────────────────────────────────────────────────
+    {
+      name: "list_pages",
+      description: "List indexed documents/pages for an agent. Useful for inspecting what is in the knowledge base.",
+      inputSchema: {
+        type: "object",
+        required: ["agent_id"],
+        properties: {
+          agent_id: { type: "number" },
+          page: { type: "number", description: "Page number (default 1)." },
+          per_page: { type: "number", description: "Results per page (default 20, max 100)." },
+        },
+      },
+    },
+    {
+      name: "delete_page",
+      description: "Delete a specific indexed document/page from an agent by its page ID.",
+      inputSchema: {
+        type: "object",
+        required: ["agent_id", "page_id"],
+        properties: {
+          agent_id: { type: "number" },
+          page_id: { type: "number" },
+        },
+      },
+    },
+
+    // ── Page metadata ─────────────────────────────────────────────────────
+    {
+      name: "get_page_metadata",
+      description: "Get metadata (title, description, URL, image) for a specific indexed document.",
+      inputSchema: {
+        type: "object",
+        required: ["agent_id", "page_id"],
+        properties: {
+          agent_id: { type: "number" },
+          page_id:  { type: "number" },
+        },
+      },
+    },
+    {
+      name: "update_page_metadata",
+      description: "Update metadata for a specific indexed document. Useful for correcting titles, descriptions, or URLs that were incorrectly extracted.",
+      inputSchema: {
+        type: "object",
+        required: ["agent_id", "page_id"],
+        properties: {
+          agent_id:    { type: "number" },
+          page_id:     { type: "number" },
+          title:       { type: "string", description: "Page title (max 255 chars)." },
+          url:         { type: "string", description: "Page URL (max 2000 chars)." },
+          description: { type: "string", description: "Page description (max 500 chars)." },
+          image:       { type: "string", description: "Image URL (max 2000 chars)." },
+        },
+      },
+    },
+
+    // ── Citations ─────────────────────────────────────────────────────────
+    {
+      name: "get_citation",
+      description: "Get metadata for a citation returned in a query response (title, description, URL, image).",
+      inputSchema: {
+        type: "object",
+        required: ["agent_id", "citation_id"],
+        properties: {
+          agent_id:    { type: "number" },
+          citation_id: { type: "number" },
+        },
+      },
+    },
+
+    // ── Messages ──────────────────────────────────────────────────────────
+    {
+      name: "get_messages",
+      description: "List messages in a conversation session.",
+      inputSchema: {
+        type: "object",
+        required: ["agent_id", "session_id"],
+        properties: {
+          agent_id:   { type: "number" },
+          session_id: { type: "string" },
+          page:       { type: "number", description: "Page number (default 1)." },
+          order:      { type: "string", enum: ["asc", "desc"], description: "Message order (default: asc)." },
+        },
+      },
+    },
+    {
+      name: "get_message",
+      description: "Get details of a specific message in a conversation, including citations and feedback.",
+      inputSchema: {
+        type: "object",
+        required: ["agent_id", "session_id", "prompt_id"],
+        properties: {
+          agent_id:   { type: "number" },
+          session_id: { type: "string" },
+          prompt_id:  { type: "number" },
+        },
+      },
+    },
+    {
+      name: "message_feedback",
+      description: "Submit thumbs-up, thumbs-down, or neutral feedback on a message.",
+      inputSchema: {
+        type: "object",
+        required: ["agent_id", "session_id", "prompt_id", "reaction"],
+        properties: {
+          agent_id:   { type: "number" },
+          session_id: { type: "string" },
+          prompt_id:  { type: "number" },
+          reaction:   { type: "string", enum: ["liked", "disliked", "neutral"] },
+        },
+      },
+    },
+    {
+      name: "get_message_claims",
+      description: "Get the extracted factual claims from a message response for independent verification.",
+      inputSchema: {
+        type: "object",
+        required: ["agent_id", "session_id", "prompt_id"],
+        properties: {
+          agent_id:   { type: "number" },
+          session_id: { type: "string" },
+          prompt_id:  { type: "number" },
+        },
+      },
+    },
+    {
+      name: "get_trust_score",
+      description: "Get the trust score and stakeholder analysis for a message (end user, security, risk compliance, legal, public relations).",
+      inputSchema: {
+        type: "object",
+        required: ["agent_id", "session_id", "prompt_id"],
+        properties: {
+          agent_id:   { type: "number" },
+          session_id: { type: "string" },
+          prompt_id:  { type: "number" },
         },
       },
     },
@@ -443,6 +643,29 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         });
       }
 
+      // ── list_agents ──────────────────────────────────────────────────────
+      case "list_agents": {
+        const page = a.page || 1;
+        const r = await cgFetch(`/projects?page=${page}`);
+        if (!r.ok) return fail(r);
+        const data = r.body?.data || {};
+        const agents = (data.data || []).map(p => ({
+          agent_id: p.id,
+          name: p.project_name,
+          type: p.type,
+          is_chat_active: p.is_chat_active,
+          created_at: p.created_at,
+        }));
+        return ok({ agents, total: data.total, page: data.current_page, last_page: data.last_page });
+      }
+
+      // ── delete_agent ─────────────────────────────────────────────────────
+      case "delete_agent": {
+        const r = await cgFetch(`/projects/${a.agent_id}`, { method: "DELETE" });
+        if (!r.ok) return fail(r);
+        return ok({ deleted: true, agent_id: a.agent_id });
+      }
+
       // ── get_agent ────────────────────────────────────────────────────────
       case "get_agent": {
         const meta = readMeta(a.repo_root);
@@ -454,8 +677,8 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
             found: true,
             agent_id: meta.agent_id,
             name: r.body?.data?.project_name || meta.project_name,
-            pages_count: r.body?.data?.pages_count,
-            index_status: r.body?.data?.index_status,
+            is_chat_active: r.body?.data?.is_chat_active,
+            type: r.body?.data?.type,
           });
         }
         return ok({ found: false, stale: true, message: "Stored agent ID no longer exists on the server." });
@@ -541,7 +764,19 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       case "refresh_index": {
         const { repo_root, agent_id, start_path } = a;
 
-        // Delete all existing pages in pages
+        if (!fs.existsSync(start_path)) {
+          return ok({ deleted: 0, uploaded: 0, message: `Path not found: ${start_path}` });
+        }
+
+        const files = collectFiles(repo_root, start_path);
+        if (files.length === 0) {
+          return ok({ deleted: 0, uploaded: 0, message: "No eligible files found to re-index." });
+        }
+
+        // Build a set of relative paths that will be re-indexed
+        const relPaths = new Set(files.map(f => path.relative(repo_root, f)));
+
+        // Delete only pages whose title matches one of those relative paths
         let page = 1;
         let deleted = 0;
         while (true) {
@@ -549,21 +784,13 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           if (!r.ok || !r.body?.data?.data?.length) break;
           const pages = r.body.data.data;
           for (const p of pages) {
-            const dr = await cgFetch(`/projects/${agent_id}/pages/${p.id}`, { method: "DELETE" });
-            if (dr.ok) deleted++;
+            if (relPaths.has(p.filename)) {
+              const dr = await cgFetch(`/projects/${agent_id}/pages/${p.id}`, { method: "DELETE" });
+              if (dr.ok) deleted++;
+            }
           }
           if (pages.length < 100) break;
           page++;
-        }
-
-        // Re-index
-        if (!fs.existsSync(start_path)) {
-          return ok({ deleted, uploaded: 0, message: `Path not found after clearing: ${start_path}` });
-        }
-
-        const files = collectFiles(repo_root, start_path);
-        if (files.length === 0) {
-          return ok({ deleted, uploaded: 0, message: "No eligible files found to re-index." });
         }
 
         const results = await uploadFiles(agent_id, files, repo_root);
@@ -573,7 +800,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           uploaded: results.uploaded,
           failed: results.failed,
           failed_files: results.failed_files,
-          message: `🔄 Cleared ${deleted} old pages. Re-uploaded ${results.uploaded} files.`,
+          message: `🔄 Deleted ${deleted} old pages. Re-uploaded ${results.uploaded} files.`,
         });
       }
 
@@ -596,6 +823,149 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           failed_files: results.failed_files,
           message: `✅ Added ${results.uploaded} files to the index.`,
         });
+      }
+
+      // ── list_pages ───────────────────────────────────────────────────────
+      case "list_pages": {
+        const page = a.page || 1;
+        const per_page = a.per_page || 20;
+        const r = await cgFetch(`/projects/${a.agent_id}/pages?page=${page}&per_page=${per_page}`);
+        if (!r.ok) return fail(r);
+        const data = r.body?.data || {};
+        const pages = (data.data || []).map(p => ({
+          id: p.id,
+          filename: p.filename,
+          page_url: p.page_url,
+          is_file: p.is_file,
+          crawl_status: p.crawl_status,
+          index_status: p.index_status,
+          created_at: p.created_at,
+        }));
+        return ok({ pages, total: data.total, page: data.current_page, last_page: data.last_page });
+      }
+
+      // ── delete_page ──────────────────────────────────────────────────────
+      case "delete_page": {
+        const r = await cgFetch(`/projects/${a.agent_id}/pages/${a.page_id}`, { method: "DELETE" });
+        if (!r.ok) return fail(r);
+        return ok({ deleted: true, page_id: a.page_id });
+      }
+
+      // ── get_settings ─────────────────────────────────────────────────────
+      case "get_settings": {
+        const r = await cgFetch(`/projects/${a.agent_id}/settings`);
+        if (!r.ok) return fail(r);
+        return ok(r.body?.data || {});
+      }
+
+      // ── update_settings ───────────────────────────────────────────────────
+      case "update_settings": {
+        const { agent_id, ...fields } = a;
+        const form = new URLSearchParams();
+        for (const [k, v] of Object.entries(fields)) {
+          if (v === undefined || v === null) continue;
+          if (Array.isArray(v)) {
+            v.forEach(item => form.append(`${k}[]`, item));
+          } else {
+            form.append(k, String(v));
+          }
+        }
+        const r = await cgFetch(`/projects/${agent_id}/settings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: form,
+        });
+        if (!r.ok) return fail(r);
+        return ok(r.body?.data || {});
+      }
+
+      // ── get_page_metadata ─────────────────────────────────────────────────
+      case "get_page_metadata": {
+        const r = await cgFetch(`/projects/${a.agent_id}/pages/${a.page_id}/metadata`);
+        if (!r.ok) return fail(r);
+        return ok(r.body?.data || {});
+      }
+
+      // ── update_page_metadata ──────────────────────────────────────────────
+      case "update_page_metadata": {
+        const { agent_id, page_id, ...meta } = a;
+        const r = await cgFetch(`/projects/${agent_id}/pages/${page_id}/metadata`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(meta),
+        });
+        if (!r.ok) return fail(r);
+        return ok(r.body?.data || {});
+      }
+
+      // ── get_citation ──────────────────────────────────────────────────────
+      case "get_citation": {
+        const r = await cgFetch(`/projects/${a.agent_id}/citations/${a.citation_id}`);
+        if (!r.ok) return fail(r);
+        return ok(r.body?.data || {});
+      }
+
+      // ── get_messages ──────────────────────────────────────────────────────
+      case "get_messages": {
+        const page  = a.page  || 1;
+        const order = a.order || "asc";
+        const r = await cgFetch(`/projects/${a.agent_id}/conversations/${a.session_id}/messages?page=${page}&order=${order}`);
+        if (!r.ok) return fail(r);
+        const data = r.body?.data || {};
+        const messages = (data.messages?.data || []).map(m => ({
+          id: m.id,
+          user_query: m.user_query,
+          openai_response: m.openai_response,
+          citations: m.citations,
+          created_at: m.created_at,
+          reaction: m.response_feedback?.reaction,
+        }));
+        return ok({
+          messages,
+          total: data.messages?.total,
+          page: data.messages?.current_page,
+          last_page: data.messages?.last_page,
+        });
+      }
+
+      // ── get_message ───────────────────────────────────────────────────────
+      case "get_message": {
+        const r = await cgFetch(`/projects/${a.agent_id}/conversations/${a.session_id}/messages/${a.prompt_id}`);
+        if (!r.ok) return fail(r);
+        const m = r.body?.data || {};
+        return ok({
+          id: m.id,
+          user_query: m.user_query,
+          openai_response: m.openai_response,
+          citations: m.citations,
+          reaction: m.response_feedback?.reaction,
+          created_at: m.created_at,
+        });
+      }
+
+      // ── message_feedback ──────────────────────────────────────────────────
+      case "message_feedback": {
+        const r = await cgFetch(`/projects/${a.agent_id}/conversations/${a.session_id}/messages/${a.prompt_id}/feedback`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reaction: a.reaction }),
+        });
+        if (!r.ok) return fail(r);
+        return ok({ updated: true, reaction: a.reaction });
+      }
+
+      // ── get_message_claims ────────────────────────────────────────────────
+      case "get_message_claims": {
+        const r = await cgFetch(`/projects/${a.agent_id}/conversations/${a.session_id}/messages/${a.prompt_id}/claims`);
+        if (!r.ok) return fail(r);
+        return ok(r.body?.data || {});
+      }
+
+      // ── get_trust_score ───────────────────────────────────────────────────
+      case "get_trust_score": {
+        const r = await cgFetch(`/projects/${a.agent_id}/conversations/${a.session_id}/messages/${a.prompt_id}/trust-score`);
+        if (!r.ok) return fail(r);
+        return ok(r.body?.data || {});
       }
 
       // ── query ─────────────────────────────────────────────────────────────
