@@ -47,12 +47,26 @@ You have access to these tools from the `rag-search` server:
 | `validate_api_key` | Check if the stored API key is valid |
 | `setup_api_key` | Store and validate a CustomGPT.ai API key |
 | `check_limits` | Get account page/document limits and current usage |
+| `list_agents` | List all CustomGPT.ai agents in the account |
 | `get_agent` | Look up the agent for a repo path (reads .rag-search-meta.json) |
 | `create_agent` | Create a new CustomGPT.ai agent and persist its ID |
+| `delete_agent` | Permanently delete an agent and all its data |
 | `index_files` | Upload files to the agent (respects .gitignore, skips binaries) |
 | `index_status` | Poll indexing progress — check when index is ready to query |
-| `refresh_index` | Delete all docs and re-index from scratch |
+| `refresh_index` | Delete only the pages for files under start_path, then re-upload them — keeps the rest of the index intact |
 | `add_files` | Add specific files/folders to an existing index |
+| `list_pages` | List indexed documents in the knowledge base |
+| `delete_page` | Delete a specific indexed document by page ID |
+| `get_settings` | Get agent settings (persona, colors, citations, UI strings, etc.) |
+| `update_settings` | Update agent settings — only provide fields to change |
+| `get_page_metadata` | Get metadata (title, description, URL, image) for a page |
+| `update_page_metadata` | Update metadata for a specific indexed document |
+| `get_citation` | Resolve a citation ID from a query response into full metadata |
+| `get_messages` | List messages in a conversation session |
+| `get_message` | Get a single message with citations and feedback |
+| `message_feedback` | Submit liked/disliked/neutral feedback on a message |
+| `get_message_claims` | Get extracted factual claims from a message for verification |
+| `get_trust_score` | Get stakeholder trust analysis for a message |
 | `query` | Ask a question, get an AI answer with source citations |
 
 ---
@@ -133,13 +147,9 @@ Same flow, but call `index_files` once per path, or use `add_files` if an agent 
 
 ### On "Refresh the index" / "Re-index from scratch" / "Update the index"
 
-1. Confirm with the user before the destructive action:
-   ```
-   ⚠️ This will delete all indexed content and re-index from scratch.
-   Continue? (yes/no)
-   ```
-2. Call `refresh_index` with the same `repo_root`, `agent_id`, and `start_path` as before.
-3. Show progress as above.
+1. Call `refresh_index` with `repo_root`, `agent_id`, and `start_path`.
+   - This deletes **only the pages matching files under start_path**, then re-uploads them. Pages from other parts of the index are untouched.
+2. Show progress as above.
 
 ---
 
