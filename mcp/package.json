@@ -1,5 +1,5 @@
 {
-  "name": "rag-search-mcp",
+  "name": "customgpt-ai-rag-mcp",
   "version": "1.0.0",
   "type": "module",
   "description": "MCP server for CustomGPT.ai RAG Search Claude Code plugin",

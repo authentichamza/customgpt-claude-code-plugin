@@ -113,10 +113,10 @@ PYEOF
 
 case "$RESULT" in
   INDEXED_FILE)
-    echo "[RAG Search] This file is in the RAG index (agent_id: $AGENT_ID, repo_root: $REPO_ROOT). You MUST call mcp__rag-search__query(agent_id: $AGENT_ID, question: ...) instead of reading the file. Only fall back to Read if query() returns no result."
+    echo "[RAG Search] This file is in the RAG index (agent_id: $AGENT_ID, repo_root: $REPO_ROOT). You MUST call mcp__customgpt-ai-rag__query(agent_id: $AGENT_ID, question: ...) instead of reading the file. Only fall back to Read if query() returns no result."
     ;;
   INDEXED_BROAD)
-    echo "[RAG Search] This project has a RAG index (agent_id: $AGENT_ID, repo_root: $REPO_ROOT). Use mcp__rag-search__query(agent_id: $AGENT_ID, question: ...) to search semantically. Only fall back to Glob/Grep for files added after the last index run."
+    echo "[RAG Search] This project has a RAG index (agent_id: $AGENT_ID, repo_root: $REPO_ROOT). Use mcp__customgpt-ai-rag__query(agent_id: $AGENT_ID, question: ...) to search semantically. Only fall back to Glob/Grep for files added after the last index run."
     ;;
 esac
 

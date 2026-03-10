@@ -140,7 +140,8 @@ customgpt-claude-code-plugin/
 │   └── marketplace.json     # Marketplace metadata
 ├── .mcp.json                # MCP server registration
 ├── skills/
-│   └── rag-search.md        # Skill: triggers and behavior rules
+│   └── customgpt-ai-rag/
+│       └── SKILL.md         # Skill: triggers and behavior rules
 ├── mcp/
 │   ├── server.js            # MCP server (Node.js)
 │   ├── start.sh             # Launcher: auto-installs deps, starts server
@@ -199,7 +200,7 @@ claude plugin add ./customgpt-claude-code-plugin --project
 ## Uninstalling
 
 ```bash
-claude plugin remove rag-search
+claude plugin remove customgpt-ai-rag
 ```
 
 Your CustomGPT.ai agent and all indexed data remain intact at https://app.customgpt.ai.

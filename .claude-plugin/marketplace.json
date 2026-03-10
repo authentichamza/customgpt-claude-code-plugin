@@ -10,7 +10,7 @@
   },
   "plugins": [
     {
-      "name": "rag-search",
+      "name": "customgpt-ai-rag",
       "source": "./",
       "description": "Semantic search over your entire repo or document set using CustomGPT.ai RAG. Index code, PDFs, transcripts, and business docs — then query in plain language from inside Claude Code.",
       "version": "1.0.0",

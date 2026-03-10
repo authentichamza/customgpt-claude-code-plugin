@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "rag-search": {
+    "customgpt-ai-rag": {
       "command": "/bin/bash",
       "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/start.sh"],
       "env": {}

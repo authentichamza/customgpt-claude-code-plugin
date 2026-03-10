@@ -444,12 +444,12 @@ These are full user journeys matching the use cases from the Product Brief.
 | 24.1 | `plugin.json` valid JSON | `node -e "JSON.parse(require('fs').readFileSync('plugin.json','utf8'))"` | No error | ☐ | |
 | 24.2 | `.mcp.json` valid JSON | Same for `.mcp.json` | No error | ☐ | |
 | 24.3 | `mcp/package.json` valid JSON | Same | No error | ☐ | |
-| 24.4 | Plugin name is `rag-search` | Check `plugin.json` | `"name": "rag-search"` | ☐ | |
-| 24.5 | MCP server name is `rag-search` | Check `.mcp.json` | `"rag-search"` key in `mcpServers` | ☐ | |
-| 24.6 | Skill path correct | Check `plugin.json` skills array | `"path": "skills/rag-search.md"` | ☐ | |
+| 24.4 | Plugin name is `customgpt-ai-rag` | Check `plugin.json` | `"name": "customgpt-ai-rag"` | ☐ | |
+| 24.5 | MCP server name is `customgpt-ai-rag` | Check `.mcp.json` | `"customgpt-ai-rag"` key in `mcpServers` | ☐ | |
+| 24.6 | Skill path correct | Check `plugin.json` skills array | `"path": "skills/customgpt-ai-rag/SKILL.md"` | ☐ | |
 | 24.7 | Hook path correct | Check `plugin.json` hooks array | `"path": "hooks/post-tool-use.sh"` | ☐ | |
 | 24.8 | `ignore` in dependencies | Check `mcp/package.json` | `"ignore": "^5.3.1"` or similar | ☐ | |
-| 24.9 | `skill` triggers cover key phrases | Check `skills/rag-search.md` front-matter | "index this repo", "refresh the index", "search my codebase", "build a RAG" all present | ☐ | |
+| 24.9 | `skill` triggers cover key phrases | Check `skills/customgpt-ai-rag/SKILL.md` front-matter | "index this repo", "refresh the index", "search my codebase", "build a RAG" all present | ☐ | |
 
 ---
 

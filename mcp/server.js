@@ -272,7 +272,7 @@ async function resolveAgent(repoRoot) {
 // ---------------------------------------------------------------------------
 
 const server = new Server(
-  { name: "rag-search", version: "1.0.0" },
+  { name: "customgpt-ai-rag", version: "1.0.0" },
   { capabilities: { tools: {} } }
 );
 

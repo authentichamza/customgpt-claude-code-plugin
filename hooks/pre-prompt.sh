@@ -30,7 +30,7 @@ fi
 DIRTY_FILE="$REPO_ROOT/.rag-search-dirty"
 
 if [ -f "$DIRTY_FILE" ]; then
-  echo "[RAG Search] ⚠️  Files were modified since the index was last built. Call mcp__rag-search__refresh_index (agent_id: $AGENT_ID, repo_root: $REPO_ROOT, start_path: $REPO_ROOT) before querying — results may be stale otherwise."
+  echo "[RAG Search] ⚠️  Files were modified since the index was last built. Call mcp__customgpt-ai-rag__refresh_index (agent_id: $AGENT_ID, repo_root: $REPO_ROOT, start_path: $REPO_ROOT) before querying — results may be stale otherwise."
 fi
 
-echo "[RAG Search] RAG index active (agent_id: $AGENT_ID, repo_root: $REPO_ROOT). REQUIRED: call mcp__rag-search__query(agent_id: $AGENT_ID, question: ...) for ANY question about file contents, code, or docs — do NOT use Read/Glob/Grep for content questions. Only use file tools for files added after indexing, binaries, or excluded dirs (node_modules, dist, .git)."
+echo "[RAG Search] RAG index active (agent_id: $AGENT_ID, repo_root: $REPO_ROOT). REQUIRED: call mcp__customgpt-ai-rag__query(agent_id: $AGENT_ID, question: ...) for ANY question about file contents, code, or docs — do NOT use Read/Glob/Grep for content questions. Only use file tools for files added after indexing, binaries, or excluded dirs (node_modules, dist, .git)."

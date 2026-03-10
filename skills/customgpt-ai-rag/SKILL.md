@@ -1,5 +1,5 @@
 ---
-name: rag-search
+name: customgpt-ai-rag
 description: Semantic search over an indexed repo or document set via CustomGPT.ai RAG. Index code, PDFs, transcripts, contracts, and business docs — then query in plain language with source citations.
 triggers:
   - "index this repo"
@@ -40,7 +40,7 @@ This plugin solves a core Claude Code limitation: you read files sequentially an
 
 ## MCP Tools
 
-You have access to these tools from the `rag-search` server:
+You have access to these tools from the `customgpt-ai-rag` server:
 
 | Tool | Purpose |
 |------|---------|
