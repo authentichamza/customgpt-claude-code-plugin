@@ -818,8 +818,8 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         let deleted = 0;
         while (true) {
           const r = await cgFetch(`/projects/${agent_id}/pages?page=${page}&per_page=100`);
-          if (!r.ok || !r.body?.data?.data?.length) break;
-          const pages = r.body.data.data;
+          if (!r.ok || !r.body?.data?.pages?.data?.length) break;
+          const pages = r.body.data.pages.data;
           for (const p of pages) {
             if (pageMatches(p)) {
               const dr = await cgFetch(`/projects/${agent_id}/pages/${p.id}`, { method: "DELETE" });
