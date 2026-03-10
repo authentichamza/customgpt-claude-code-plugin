@@ -809,10 +809,27 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           return ok({ deleted: 0, uploaded: 0, message: "No eligible files found to re-index." });
         }
 
-        // Build a set of relative paths that will be re-indexed
+        // Build sets for matching: relative paths and their basenames
         const relPaths = new Set(files.map(f => path.relative(repo_root, f)));
+        const basenames = new Set(files.map(f => path.basename(f)));
 
-        // Delete only pages whose title matches one of those relative paths
+        // Match a page against the files being re-indexed.
+        // Try filename and page_url against both the full relative path and basename,
+        // since different CustomGPT API versions return different fields/formats.
+        const pageMatches = (p) => {
+          const candidates = [p.filename, p.page_url].filter(Boolean);
+          for (const c of candidates) {
+            if (relPaths.has(c)) return true;
+            if (basenames.has(c)) return true;
+            // c may be a full URL or prefixed path — check if it ends with a relPath
+            for (const rel of relPaths) {
+              if (c.endsWith("/" + rel) || c.endsWith(rel)) return true;
+            }
+          }
+          return false;
+        };
+
+        // Delete only pages matching the files about to be re-indexed
         let page = 1;
         let deleted = 0;
         while (true) {
@@ -820,7 +837,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           if (!r.ok || !r.body?.data?.data?.length) break;
           const pages = r.body.data.data;
           for (const p of pages) {
-            if (relPaths.has(p.filename)) {
+            if (pageMatches(p)) {
               const dr = await cgFetch(`/projects/${agent_id}/pages/${p.id}`, { method: "DELETE" });
               if (dr.ok) deleted++;
             }
