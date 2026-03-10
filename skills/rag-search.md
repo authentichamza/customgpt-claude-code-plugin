@@ -73,6 +73,49 @@ You have access to these tools from the `rag-search` server:
 
 ## Behavior Rules
 
+### Critical Rules (Never Violate)
+
+- **One agent per folder.** Each local repo/folder has exactly one CustomGPT.ai agent, identified by `.rag-search-meta.json` at that folder's root.
+- **`list_agents` is only for explicit user requests** like "show me my agents". Never call it as a step in indexing or querying workflows.
+- **Never call `get_agent`, `list_agents`, or `create_agent` before indexing.** The indexing tools (`index_files`, `add_files`, `refresh_index`) auto-resolve or create the agent from `repo_root`. Just provide `repo_root` and the paths — the server handles everything else.
+- **How to determine `repo_root`**: Use the Git repo root of the files being indexed, or the parent directory of the files. Never skip this — resolve it before calling any indexing tool.
+- **After indexing, always use `query` for content questions.** When `index_files` or `add_files` returns an `agent_id` in this session, use that `agent_id` with `query` for any follow-up question about those files. Do NOT use Read/Glob/Grep — the files are now in the index.
+- **When a `[RAG Search]` context line is present** (injected by the pre-prompt hook), you MUST call `query` before using any file tool. The hook tells you the `agent_id` and `repo_root` directly — use them.
+- **"What does X file say?" = call `query`**, not `Read`. Any question about file content when a RAG index exists must go through `query` first.
+
+### Proactive RAG Usage (Auto-mode)
+
+You do not need to wait for the user to ask you to use RAG search. Follow these rules automatically:
+
+#### Routing logic — which tool to use
+
+Not all files in a project are necessarily indexed. Use this decision tree:
+
+| Situation | Action |
+|---|---|
+| Question about codebase/docs | Call `query` first. If no result → fall back to file tools. |
+| About to `Read` a specific file | Check if the `[RAG Search] PreToolUse` hook fired. If yes, try `query` first with a targeted question about that file's content. Fall back to `Read` only if `query` returns nothing relevant. |
+| About to `Glob`/`Grep` broadly | Use `query` first — it searches indexed files semantically and is faster. Fall back to Glob/Grep for files not yet in the index (new files, excluded paths). |
+| File is in `node_modules`, `dist`, `build`, `.git`, or other excluded dirs | Use file tools directly — these are never indexed. |
+| File has a binary/unsupported extension (image, font, compiled artifact) | Use file tools directly — these are never indexed. |
+| File was created or modified after the last index run | Use file tools directly or trigger `refresh_index` first, then `query`. |
+
+#### Concrete rules
+
+1. **Before exploring the codebase** — call `get_agent` with `$PWD`. If `found: true`, route through `query` for any content question. Only use Glob/Grep/Read/Explore for content that query() cannot reach.
+
+2. **When the `[RAG Search]` context line is injected by hooks** — follow it immediately:
+   - `⚠️ stale index` → call `refresh_index` before querying
+   - `PreToolUse` intercept on a specific file → try `query` first, fall back to the file tool if query returns nothing
+
+3. **When `query` returns no useful result** — do not retry with the same question. Fall back to file tools for that specific content. The file may not be indexed yet.
+
+4. **Mixed directories** — some files indexed, some not. Use `query` for the indexed portion and file tools for the rest. Both can be used in the same response.
+
+5. **Never ask the user "should I use RAG?"** — route automatically based on these rules.
+
+---
+
 ### On First Use / No API Key
 
 1. Call `validate_api_key`. If it returns `valid: false`:
@@ -98,21 +141,12 @@ You have access to these tools from the `rag-search` server:
 ### On "Index this repo" / "Index this project" / "Build a RAG from this folder"
 
 1. **Validate API key** (step above if needed).
-2. Call `get_agent` with the current repo root.
-   - If `found: true`: Tell the user an index already exists for this project. Ask:
-     ```
-     An index already exists for this project (agent ID: 12345, X pages).
-     Would you like to:
-       1. Re-use it and query directly
-       2. Refresh it (delete all and re-index from scratch)
-     ```
-3. Call `check_limits`. Estimate the file count (you can do a quick `find` or `ls -R`). Warn if it looks like it may exceed the plan:
+2. Call `check_limits`. Warn if file count may exceed the plan:
    ```
    ⚠️ Your plan supports up to N pages. This project contains ~M files.
    Consider indexing a sub-folder only, or upgrading at https://customgpt.ai/pricing
    ```
-4. If no existing agent (or user wants a fresh index): Call `create_agent` with a sensible project name (repo folder name is a good default).
-5. Call `index_files` with `repo_root` and `start_path` both set to the repo root.
+3. Call `index_files` with `repo_root` and `start_path` both set to the repo root. **Do not call `get_agent`, `list_agents`, or `create_agent` first** — `index_files` automatically finds the existing agent for this folder or creates a new one named after the folder.
 6. Show progress:
    ```
    📂 Uploading files... (X/Y uploaded)
@@ -139,9 +173,14 @@ Same flow as full indexing, but:
 
 ---
 
-### On "Index these files" / "Index docs/architecture.pdf and src/auth/"
+### On "Index these files" / "Index docs/architecture.pdf and src/auth/" / "Index file1.md and file2.md"
 
-Same flow, but call `index_files` once per path, or use `add_files` if an agent already exists.
+1. **Validate API key** (if needed).
+2. Resolve the `repo_root` (Git root of the files or their parent directory).
+3. Resolve all mentioned file/folder paths to absolute paths.
+4. Call `add_files` **once** with `repo_root` and ALL paths in the `paths` array. **Never call `index_files` once per file** — `add_files` takes an array and handles multiple paths in a single call.
+5. After `add_files` returns an `agent_id`, use that `agent_id` with `query` for any follow-up questions about those files.
+6. Confirm: "✅ X files indexed. You can now ask questions about them."
 
 ---
 

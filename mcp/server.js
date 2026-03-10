@@ -241,6 +241,31 @@ function guessMime(filePath) {
 }
 
 // ---------------------------------------------------------------------------
+// Agent auto-resolve: reads meta or creates a new agent from folder name
+// ---------------------------------------------------------------------------
+
+async function resolveAgent(repoRoot) {
+  const meta = readMeta(repoRoot);
+  if (meta?.agent_id) {
+    // Verify it still exists
+    const r = await cgFetch(`/projects/${meta.agent_id}`);
+    if (r.ok) return { agent_id: meta.agent_id, created: false };
+  }
+  // Create a new agent named after the folder
+  const projectName = path.basename(repoRoot);
+  const body = new URLSearchParams({ project_name: projectName, is_chat_active: "1" });
+  const r = await cgFetch("/projects", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  if (!r.ok) throw new Error(`Failed to create agent: ${r.body?.message || r.status}`);
+  const agent_id = r.body?.data?.id;
+  writeMeta(repoRoot, { agent_id, project_name: projectName, created_at: new Date().toISOString() });
+  return { agent_id, created: true, project_name: projectName };
+}
+
+// ---------------------------------------------------------------------------
 // MCP Server
 // ---------------------------------------------------------------------------
 
@@ -336,16 +361,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     // ── Indexing ──────────────────────────────────────────────────────────
     {
       name: "index_files",
-      description: "Upload files from a path to the CustomGPT.ai agent. Walks directories recursively, respects .gitignore, and skips dotfiles, binaries, and build artifacts. Supports code, PDFs, DOCX, XLSX, CSV, transcripts, and more.",
+      description: "Upload files from a path to the CustomGPT.ai agent. Automatically finds or creates the agent for repo_root — you do NOT need to look up or provide agent_id. Walks directories recursively, respects .gitignore, and skips dotfiles, binaries, and build artifacts.",
       inputSchema: {
         type: "object",
-        required: ["repo_root", "agent_id", "start_path"],
+        required: ["repo_root", "start_path"],
         properties: {
           repo_root: {
             type: "string",
-            description: "Absolute path to the repo root (used for .gitignore and relative paths).",
+            description: "Absolute path to the repo root. The agent is looked up or created automatically from this path.",
           },
-          agent_id: { type: "number" },
+          agent_id: { type: "number", description: "Optional. Omit to auto-resolve from repo_root." },
           start_path: {
             type: "string",
             description: "Absolute path to start indexing from — can be the repo root, a subfolder, or a single file.",
@@ -366,13 +391,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "refresh_index",
-      description: "Re-index files under start_path: deletes only the pages for those files, then re-uploads them. Use when files have changed and you want search results to stay current.",
+      description: "Re-index files under start_path: deletes only the pages for those files, then re-uploads them. Automatically finds or creates the agent for repo_root — you do NOT need to look up or provide agent_id.",
       inputSchema: {
         type: "object",
-        required: ["repo_root", "agent_id", "start_path"],
+        required: ["repo_root", "start_path"],
         properties: {
-          repo_root: { type: "string" },
-          agent_id: { type: "number" },
+          repo_root: { type: "string", description: "Absolute path to the repo root. The agent is looked up or created automatically." },
+          agent_id: { type: "number", description: "Optional. Omit to auto-resolve from repo_root." },
           start_path: {
             type: "string",
             description: "Absolute path to re-index from.",
@@ -382,13 +407,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "add_files",
-      description: "Add specific files or folders to an existing agent index without re-indexing everything.",
+      description: "Add specific files or folders to the agent index without re-indexing everything. Automatically finds or creates the agent for repo_root — you do NOT need to look up or provide agent_id.",
       inputSchema: {
         type: "object",
-        required: ["repo_root", "agent_id", "paths"],
+        required: ["repo_root", "paths"],
         properties: {
-          repo_root: { type: "string" },
-          agent_id: { type: "number" },
+          repo_root: { type: "string", description: "Absolute path to the repo root. The agent is looked up or created automatically." },
+          agent_id: { type: "number", description: "Optional. Omit to auto-resolve from repo_root." },
           paths: {
             type: "array",
             items: { type: "string" },
@@ -707,7 +732,9 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
       // ── index_files ──────────────────────────────────────────────────────
       case "index_files": {
-        const { repo_root, agent_id, start_path } = a;
+        const { repo_root, start_path } = a;
+        const resolved = await resolveAgent(repo_root);
+        const agent_id = a.agent_id ?? resolved.agent_id;
 
         if (!fs.existsSync(start_path)) {
           return ok({ uploaded: 0, message: `Path not found: ${start_path}` });
@@ -723,7 +750,12 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         }
 
         const results = await uploadFiles(agent_id, files, repo_root);
+        // Clear stale flag so pre-prompt hook stops warning
+        try { fs.unlinkSync(path.join(repo_root, ".rag-search-dirty")); } catch {}
         return ok({
+          agent_id,
+          agent_created: resolved.created,
+          project_name: resolved.project_name,
           total_found: files.length,
           uploaded: results.uploaded,
           failed: results.failed,
@@ -762,7 +794,9 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
       // ── refresh_index ────────────────────────────────────────────────────
       case "refresh_index": {
-        const { repo_root, agent_id, start_path } = a;
+        const { repo_root, start_path } = a;
+        const resolved = await resolveAgent(repo_root);
+        const agent_id = a.agent_id ?? resolved.agent_id;
 
         if (!fs.existsSync(start_path)) {
           return ok({ deleted: 0, uploaded: 0, message: `Path not found: ${start_path}` });
@@ -794,6 +828,8 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         }
 
         const results = await uploadFiles(agent_id, files, repo_root);
+        // Clear stale flag so pre-prompt hook stops warning
+        try { fs.unlinkSync(path.join(repo_root, ".rag-search-dirty")); } catch {}
         return ok({
           deleted,
           total_found: files.length,
@@ -806,7 +842,9 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
       // ── add_files ────────────────────────────────────────────────────────
       case "add_files": {
-        const { repo_root, agent_id, paths } = a;
+        const { repo_root, paths } = a;
+        const resolved = await resolveAgent(repo_root);
+        const agent_id = a.agent_id ?? resolved.agent_id;
         let files = [];
         for (const p of paths) {
           if (!fs.existsSync(p)) continue;
