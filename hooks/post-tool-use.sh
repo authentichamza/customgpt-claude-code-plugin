@@ -1,15 +1,19 @@
 #!/bin/bash
 # Post-tool-use hook for RAG Search
 #
-# After Claude edits or writes files, remind the user that the index may be stale
-# so they know to refresh it when ready.
+# After Claude writes or edits files, mark the RAG index as potentially stale
+# by touching .rag-search-dirty at the project root.
+#
+# The pre-prompt.sh (UserPromptSubmit) hook reads this flag and injects a
+# refresh reminder into Claude's context at the start of the next prompt.
+# The MCP server clears the flag after a successful index_files or refresh_index.
 
 TOOL_NAME="${CLAUDE_TOOL_NAME:-}"
+META_FILE="$PWD/.rag-search-meta.json"
 
-# Only trigger on file-writing tools
+# Only trigger on file-writing tools, and only if this project is indexed
 if [[ "$TOOL_NAME" == "Write" || "$TOOL_NAME" == "Edit" || "$TOOL_NAME" == "NotebookEdit" ]]; then
-  echo ""
-  echo "💡 RAG Search: Files were modified. Your index may be out of date."
-  echo "   Say \"refresh the index\" or \"add the changed files to the index\" when ready."
-  echo ""
+  if [ -f "$META_FILE" ]; then
+    touch "$PWD/.rag-search-dirty"
+  fi
 fi

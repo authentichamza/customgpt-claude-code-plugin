@@ -1,3 +1,4 @@
 node_modules/
 .rag-search-meta.json
+.rag-search-dirty
 *.log

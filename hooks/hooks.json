@@ -1,4 +1,15 @@
 {
+  "PreToolUse": [
+    {
+      "matcher": "Read|Glob|Grep",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-use.sh"
+        }
+      ]
+    }
+  ],
   "PostToolUse": [
     {
       "matcher": "Write|Edit|NotebookEdit",
@@ -6,6 +17,16 @@
         {
           "type": "command",
           "command": "${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-use.sh"
+        }
+      ]
+    }
+  ],
+  "UserPromptSubmit": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-prompt.sh"
         }
       ]
     }
