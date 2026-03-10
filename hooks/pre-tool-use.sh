@@ -7,11 +7,12 @@
 
 TOOL_INPUT=$(cat)
 
-# Extract the file/path being accessed from tool input
-TARGET_PATH=$(python3 -c "
-import json, sys, os
+# Extract the file/path being accessed from tool input.
+# Pass via env var (not shell interpolation) to avoid injection via crafted paths.
+TARGET_PATH=$(RAG_TOOL_INPUT="$TOOL_INPUT" python3 -c "
+import json, os
 try:
-    data = json.loads('''$TOOL_INPUT''')
+    data = json.loads(os.environ.get('RAG_TOOL_INPUT', '{}'))
     inp = data.get('tool_input', data)
     p = (inp.get('file_path') or inp.get('path') or inp.get('pattern') or '').strip()
     print(p)

@@ -52,6 +52,7 @@ function getApiKey() {
 
 async function cgFetch(endpoint, opts = {}) {
   const key = getApiKey();
+  if (!key) throw new Error("No CustomGPT.ai API key configured. Run setup_api_key first.");
   const url = `${BASE}${endpoint}`;
   const res = await fetch(url, {
     ...opts,
@@ -92,7 +93,7 @@ const ALWAYS_EXCLUDE_DIRS = new Set([
   ".git", ".claude", ".github", ".gitlab", ".vscode", ".idea",
   "node_modules", "__pycache__", ".next", "dist", "build", "out",
   ".cache", "vendor", ".terraform", "coverage", ".nyc_output",
-  "tmp", "temp", ".eggs", "*.egg-info",
+  "tmp", "temp", ".eggs",
 ]);
 
 const ALWAYS_EXCLUDE_FILES = new Set([
@@ -158,6 +159,7 @@ function collectFiles(repoRoot, startPath) {
 
       if (entry.isDirectory()) {
         if (ALWAYS_EXCLUDE_DIRS.has(entry.name)) continue;
+        if (entry.name.endsWith(".egg-info")) continue;
         if (ig.ignores(rel + "/")) continue;
         walk(abs);
       } else {
@@ -1031,7 +1033,6 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         if (!mr.ok) return fail(mr);
 
         const msg = mr.body?.data || {};
-        console.error("Raw response from CustomGPT.ai:", JSON.stringify(msg, null, 2));
         const answer = msg?.openai_response || "No answer returned.";
 
         const citations = (msg?.citations || []).map((c) => ({

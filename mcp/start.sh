@@ -8,7 +8,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ ! -d "$DIR/node_modules" ]; then
   echo "[RAG Search] Installing dependencies..." >&2
-  cd "$DIR" && npm install --silent --prefer-offline 2>&1 >&2
+  cd "$DIR" && npm install --silent --prefer-offline >/dev/null 2>&1
 fi
 
 exec node "$DIR/server.js"

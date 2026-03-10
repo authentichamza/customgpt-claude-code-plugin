@@ -4,7 +4,7 @@
   "description": "Semantic search over your entire repo or document set using CustomGPT.ai RAG. Index code, PDFs, transcripts, and business docs — then query in plain language from inside Claude Code.",
   "author": { "name": "CustomGPT.ai" },
   "license": "MIT",
-  "repository": "https://github.com/customgpt-ai/claude-code-plugin",
+  "repository": "https://github.com/authentichamza/customgpt-claude-code-plugin",
   "skills": "./skills/",
   "hooks": "./hooks/hooks.json",
   "mcpServers": "./.mcp.json"

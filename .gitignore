@@ -2,3 +2,5 @@ node_modules/
 .rag-search-meta.json
 .rag-search-dirty
 *.log
+.claude/settings.local.json
+yarn.lock

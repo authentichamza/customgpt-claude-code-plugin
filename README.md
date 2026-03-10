@@ -18,7 +18,7 @@ This plugin gives Claude Code a persistent, semantically searchable index of you
 
 ```bash
 # Install from GitHub
-claude plugin add github:customgpt-ai/claude-code-plugin
+claude plugin add github:authentichamza/customgpt-claude-code-plugin
 
 # Or install locally during development
 claude plugin add ./customgpt-claude-code-plugin
@@ -135,15 +135,21 @@ Index reports, papers, survey results, and interview transcripts. Ask across the
 
 ```
 customgpt-claude-code-plugin/
-├── plugin.json              # Plugin manifest
+├── .claude-plugin/
+│   ├── plugin.json          # Plugin manifest (authoritative)
+│   └── marketplace.json     # Marketplace metadata
 ├── .mcp.json                # MCP server registration
 ├── skills/
 │   └── rag-search.md        # Skill: triggers and behavior rules
 ├── mcp/
 │   ├── server.js            # MCP server (Node.js)
+│   ├── start.sh             # Launcher: auto-installs deps, starts server
 │   └── package.json
 ├── hooks/
-│   └── post-tool-use.sh     # Reminds user to refresh after file edits
+│   ├── hooks.json           # Hook event registrations
+│   ├── pre-tool-use.sh      # Injects RAG context before Read/Glob/Grep
+│   ├── post-tool-use.sh     # Marks index dirty after file writes
+│   └── pre-prompt.sh        # Reminds Claude to refresh stale index
 └── README.md
 ```
 
