@@ -67,6 +67,7 @@ You have access to these tools from the `customgpt-ai-rag` server:
 | `message_feedback` | Submit liked/disliked/neutral feedback on a message |
 | `get_message_claims` | Get extracted factual claims from a message for verification |
 | `get_trust_score` | Get stakeholder trust analysis for a message |
+| `check_freshness` | Compare current file mtimes against the indexed manifest — returns files changed since last index |
 | `query` | Ask a question, get an AI answer with source citations |
 
 ---
@@ -102,7 +103,7 @@ Not all files in a project are necessarily indexed. Use this decision tree:
 
 #### Concrete rules
 
-1. **Before exploring the codebase** — call `get_agent` with `$PWD`. If `found: true`, route through `query` for any content question. Only use Glob/Grep/Read/Explore for content that query() cannot reach.
+1. **Before exploring the codebase** — call `get_agent` with `$PWD`. If `found: true`, call `check_freshness` with `repo_root`. If stale files exist, call `refresh_index` first. Then route through `query` for any content question. Only use Glob/Grep/Read/Explore for content that query() cannot reach.
 
 2. **When the `[RAG Search]` context line is injected by hooks** — follow it immediately:
    - `⚠️ stale index` → call `refresh_index` before querying
@@ -210,16 +211,18 @@ When the user asks something that should be answered from their project:
      ```
      No index found for this project. Say "index this repo" to create one.
      ```
-2. Call `query` with the `agent_id` and the user's question.
-3. Present the answer, then show sources:
+2. Call `check_freshness` with the `repo_root`.
+   - If `stale_files` is non-empty: call `refresh_index` with `repo_root`, `agent_id`, and `start_path = repo_root` before querying. This re-indexes files changed outside Claude Code too (external edits, git operations, etc.).
+3. Call `query` with the `agent_id` and the user's question.
+4. Present the answer, then show sources:
    ```
    📄 Sources:
    - src/auth/session.ts (lines 34–67)
    - docs/architecture.pdf (page 5)
    - https://example.com/some-page
    ```
-4. For follow-up questions, pass the same `session_id` back to `query` to maintain conversation context.
-5. If `citations` is empty or the answer says it couldn't find relevant content:
+5. For follow-up questions, pass the same `session_id` back to `query` to maintain conversation context.
+6. If `citations` is empty or the answer says it couldn't find relevant content:
    ```
    I couldn't find relevant content in the indexed project.
    Make sure the relevant files are indexed. Say "refresh the index" if files have changed.

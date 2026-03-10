@@ -69,7 +69,7 @@ async function cgFetch(endpoint, opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Per-project meta  (repo_root → { agent_id, project_name, created_at })
+// Per-project meta  (repo_root → { agent_id, project_name, created_at, file_manifest })
 // ---------------------------------------------------------------------------
 
 function metaPath(repoRoot) {
@@ -83,6 +83,32 @@ function readMeta(repoRoot) {
 
 function writeMeta(repoRoot, meta) {
   fs.writeFileSync(metaPath(repoRoot), JSON.stringify(meta, null, 2));
+}
+
+// Merge uploaded file mtimes into the manifest stored in meta.
+function updateManifest(repoRoot, uploadedManifest) {
+  const meta = readMeta(repoRoot);
+  if (!meta) return;
+  meta.file_manifest = { ...(meta.file_manifest || {}), ...uploadedManifest };
+  meta.last_indexed = new Date().toISOString();
+  writeMeta(repoRoot, meta);
+}
+
+// Returns absolute paths of indexed files whose mtime has changed since last index.
+function getStaleFiles(repoRoot) {
+  const meta = readMeta(repoRoot);
+  if (!meta?.file_manifest) return [];
+  const stale = [];
+  for (const [rel, recordedMtime] of Object.entries(meta.file_manifest)) {
+    const abs = path.join(repoRoot, rel);
+    try {
+      const mtime = fs.statSync(abs).mtimeMs;
+      if (mtime !== recordedMtime) stale.push(abs);
+    } catch {
+      // file deleted — skip (don't re-upload a deleted file)
+    }
+  }
+  return stale;
 }
 
 // ---------------------------------------------------------------------------
@@ -192,11 +218,12 @@ async function uploadFiles(agentId, files, repoRoot) {
   let uploaded = 0;
   let failed = 0;
   const failedFiles = [];
+  const manifest = {};
 
   for (const filePath of files) {
+    const relPath = path.relative(repoRoot, filePath);
     try {
       const form = new FormData();
-      const relPath = path.relative(repoRoot, filePath);
       form.append("file", fs.createReadStream(filePath), {
         filename: relPath,
         contentType: guessMime(filePath),
@@ -212,17 +239,18 @@ async function uploadFiles(agentId, files, repoRoot) {
       });
       if (res.ok) {
         uploaded++;
+        manifest[relPath] = fs.statSync(filePath).mtimeMs;
       } else {
         failed++;
         failedFiles.push(relPath);
       }
     } catch {
       failed++;
-      failedFiles.push(path.relative(repoRoot, filePath));
+      failedFiles.push(relPath);
     }
   }
 
-  return { uploaded, failed, failed_files: failedFiles };
+  return { uploaded, failed, failed_files: failedFiles, manifest };
 }
 
 function guessMime(filePath) {
@@ -604,6 +632,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
     // ── Querying ──────────────────────────────────────────────────────────
     {
+      name: "check_freshness",
+      description: "Compare current file mtimes against the manifest recorded at last index. Returns a list of files that have changed (or been added) since then. Call this before query to detect external edits. If stale_files is non-empty, call refresh_index before querying.",
+      inputSchema: {
+        type: "object",
+        required: ["repo_root"],
+        properties: {
+          repo_root: { type: "string", description: "Absolute path to the repo root." },
+        },
+      },
+    },
+    {
       name: "query",
       description: "Send a plain-language question to the indexed project and return an AI answer with source citations (file names, pages, URLs).",
       inputSchema: {
@@ -736,6 +775,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         }
 
         const results = await uploadFiles(agent_id, files, repo_root);
+        updateManifest(repo_root, results.manifest);
         // Clear stale flag so pre-prompt hook stops warning
         try { fs.unlinkSync(path.join(repo_root, ".rag-search-dirty")); } catch {}
         return ok({
@@ -831,6 +871,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         }
 
         const results = await uploadFiles(agent_id, files, repo_root);
+        updateManifest(repo_root, results.manifest);
         // Only clear the stale flag if all files uploaded successfully
         if (results.failed === 0) {
           try { fs.unlinkSync(path.join(repo_root, ".rag-search-dirty")); } catch {}
@@ -859,6 +900,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           return ok({ uploaded: 0, message: "No eligible files found in the specified paths." });
         }
         const results = await uploadFiles(agent_id, files, repo_root);
+        updateManifest(repo_root, results.manifest);
         return ok({
           total_found: files.length,
           uploaded: results.uploaded,
@@ -977,6 +1019,20 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         const r = await cgFetch(`/projects/${a.agent_id}/conversations/${a.session_id}/messages/${a.prompt_id}/trust-score`);
         if (!r.ok) return fail(r);
         return ok(r.body?.data || {});
+      }
+
+      // ── check_freshness ──────────────────────────────────────────────────
+      case "check_freshness": {
+        const meta = readMeta(a.repo_root);
+        if (!meta?.file_manifest) {
+          return ok({ stale_files: [], message: "No file manifest found. Index the project first." });
+        }
+        const staleFiles = getStaleFiles(a.repo_root);
+        return ok({
+          stale_files: staleFiles.map(f => path.relative(a.repo_root, f)),
+          total_indexed: Object.keys(meta.file_manifest).length,
+          last_indexed: meta.last_indexed || null,
+        });
       }
 
       // ── query ─────────────────────────────────────────────────────────────
