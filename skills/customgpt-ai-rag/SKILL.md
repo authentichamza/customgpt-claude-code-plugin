@@ -83,6 +83,7 @@ You have access to these tools from the `customgpt-ai-rag` server:
 - **After indexing, always use `query` for content questions.** When `index_files` or `add_files` returns an `agent_id` in this session, use that `agent_id` with `query` for any follow-up question about those files. Do NOT use Read/Glob/Grep — the files are now in the index.
 - **When a `[RAG Search]` context line is present** (injected by the pre-prompt hook), you MUST call `query` before using any file tool. The hook tells you the `agent_id` and `repo_root` directly — use them.
 - **"What does X file say?" = call `query`**, not `Read`. Any question about file content when a RAG index exists must go through `query` first.
+- **Always call `check_freshness` before `query`.** Never call `query` without first calling `check_freshness(repo_root)`. If `stale_files` is non-empty, call `refresh_index` with `paths: stale_files` before querying. No exceptions — skipping this returns stale results.
 
 ### Proactive RAG Usage (Auto-mode)
 
@@ -94,7 +95,7 @@ Not all files in a project are necessarily indexed. Use this decision tree:
 
 | Situation | Action |
 |---|---|
-| Question about codebase/docs | Call `query` first. If no result → fall back to file tools. |
+| Question about codebase/docs | Call `check_freshness` → if stale call `refresh_index(paths: stale_files)` → then `query`. |
 | About to `Read` a specific file | Check if the `[RAG Search] PreToolUse` hook fired. If yes, try `query` first with a targeted question about that file's content. Fall back to `Read` only if `query` returns nothing relevant. |
 | About to `Glob`/`Grep` broadly | Use `query` first — it searches indexed files semantically and is faster. Fall back to Glob/Grep for files not yet in the index (new files, excluded paths). |
 | File is in `node_modules`, `dist`, `build`, `.git`, or other excluded dirs | Use file tools directly — these are never indexed. |
