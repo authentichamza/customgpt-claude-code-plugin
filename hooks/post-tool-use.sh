@@ -9,8 +9,17 @@
 # refresh reminder into Claude's context at the start of the next prompt.
 # The MCP server clears the flag after a successful index_files or refresh_index.
 
-META_FILE="$PWD/.rag-search-meta.json"
+# Walk up from $PWD to find the nearest .rag-search-meta.json
+REPO_ROOT=""
+dir="$PWD"
+while [ "$dir" != "/" ]; do
+  if [ -f "$dir/.rag-search-meta.json" ]; then
+    REPO_ROOT="$dir"
+    break
+  fi
+  dir=$(dirname "$dir")
+done
 
-if [ -f "$META_FILE" ]; then
-  touch "$PWD/.rag-search-dirty"
+if [ -n "$REPO_ROOT" ]; then
+  touch "$REPO_ROOT/.rag-search-dirty"
 fi

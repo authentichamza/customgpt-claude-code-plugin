@@ -831,8 +831,10 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         }
 
         const results = await uploadFiles(agent_id, files, repo_root);
-        // Clear stale flag so pre-prompt hook stops warning
-        try { fs.unlinkSync(path.join(repo_root, ".rag-search-dirty")); } catch {}
+        // Only clear the stale flag if all files uploaded successfully
+        if (results.failed === 0) {
+          try { fs.unlinkSync(path.join(repo_root, ".rag-search-dirty")); } catch {}
+        }
         return ok({
           deleted,
           total_found: files.length,
