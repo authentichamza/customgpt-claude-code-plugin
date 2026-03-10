@@ -659,15 +659,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
       case "check_limits": {
         const r = await cgFetch("/limits/usage");
         if (!r.ok) return fail(r);
-        const d = r.body?.data || {};
-        return ok({
-          pages_used: d.pages_used,
-          pages_limit: d.pages_limit,
-          pages_remaining: (d.pages_limit ?? 0) - (d.pages_used ?? 0),
-          projects_used: d.projects_used,
-          projects_limit: d.projects_limit,
-          projects_remaining: (d.projects_limit ?? 0) - (d.projects_used ?? 0),
-        });
+        return ok(r.body?.data || {});
       }
 
       // ── list_agents ──────────────────────────────────────────────────────
@@ -675,22 +667,14 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         const page = a.page || 1;
         const r = await cgFetch(`/projects?page=${page}`);
         if (!r.ok) return fail(r);
-        const data = r.body?.data || {};
-        const agents = (data.data || []).map(p => ({
-          agent_id: p.id,
-          name: p.project_name,
-          type: p.type,
-          is_chat_active: p.is_chat_active,
-          created_at: p.created_at,
-        }));
-        return ok({ agents, total: data.total, page: data.current_page, last_page: data.last_page });
+        return ok(r.body?.data || {});
       }
 
       // ── delete_agent ─────────────────────────────────────────────────────
       case "delete_agent": {
         const r = await cgFetch(`/projects/${a.agent_id}`, { method: "DELETE" });
         if (!r.ok) return fail(r);
-        return ok({ deleted: true, agent_id: a.agent_id });
+        return ok(r.body?.data || {});
       }
 
       // ── get_agent ────────────────────────────────────────────────────────
@@ -888,24 +872,14 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         const per_page = a.per_page || 20;
         const r = await cgFetch(`/projects/${a.agent_id}/pages?page=${page}&per_page=${per_page}`);
         if (!r.ok) return fail(r);
-        const data = r.body?.data || {};
-        const pages = (data.data || []).map(p => ({
-          id: p.id,
-          filename: p.filename,
-          page_url: p.page_url,
-          is_file: p.is_file,
-          crawl_status: p.crawl_status,
-          index_status: p.index_status,
-          created_at: p.created_at,
-        }));
-        return ok({ pages, total: data.total, page: data.current_page, last_page: data.last_page });
+        return ok(r.body?.data || {});
       }
 
       // ── delete_page ──────────────────────────────────────────────────────
       case "delete_page": {
         const r = await cgFetch(`/projects/${a.agent_id}/pages/${a.page_id}`, { method: "DELETE" });
         if (!r.ok) return fail(r);
-        return ok({ deleted: true, page_id: a.page_id });
+        return ok(r.body?.data || {});
       }
 
       // ── get_settings ─────────────────────────────────────────────────────
@@ -968,36 +942,14 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         const order = a.order || "asc";
         const r = await cgFetch(`/projects/${a.agent_id}/conversations/${a.session_id}/messages?page=${page}&order=${order}`);
         if (!r.ok) return fail(r);
-        const data = r.body?.data || {};
-        const messages = (data.messages?.data || []).map(m => ({
-          id: m.id,
-          user_query: m.user_query,
-          openai_response: m.openai_response,
-          citations: m.citations,
-          created_at: m.created_at,
-          reaction: m.response_feedback?.reaction,
-        }));
-        return ok({
-          messages,
-          total: data.messages?.total,
-          page: data.messages?.current_page,
-          last_page: data.messages?.last_page,
-        });
+        return ok(r.body?.data || {});
       }
 
       // ── get_message ───────────────────────────────────────────────────────
       case "get_message": {
         const r = await cgFetch(`/projects/${a.agent_id}/conversations/${a.session_id}/messages/${a.prompt_id}`);
         if (!r.ok) return fail(r);
-        const m = r.body?.data || {};
-        return ok({
-          id: m.id,
-          user_query: m.user_query,
-          openai_response: m.openai_response,
-          citations: m.citations,
-          reaction: m.response_feedback?.reaction,
-          created_at: m.created_at,
-        });
+        return ok(r.body?.data || {});
       }
 
       // ── message_feedback ──────────────────────────────────────────────────
@@ -1008,7 +960,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           body: JSON.stringify({ reaction: a.reaction }),
         });
         if (!r.ok) return fail(r);
-        return ok({ updated: true, reaction: a.reaction });
+        return ok(r.body?.data || {});
       }
 
       // ── get_message_claims ────────────────────────────────────────────────
@@ -1049,16 +1001,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
         });
         if (!mr.ok) return fail(mr);
 
-        const msg = mr.body?.data || {};
-        const answer = msg?.openai_response || "No answer returned.";
-
-        const citations = (msg?.citations || []).map((c) => ({
-          title: c.title || c.url || "Source",
-          url: c.url,
-          page: c.page,
-        }));
-
-        return ok({ answer, citations, session_id: sid });
+        return ok({ ...(mr.body?.data || {}), session_id: sid });
       }
 
       default:
