@@ -19,10 +19,6 @@
     {
       "event": "PostToolUse",
       "path": "hooks/post-tool-use.sh"
-    },
-    {
-      "event": "UserPromptSubmit",
-      "path": "hooks/pre-prompt.sh"
     }
   ],
   "mcp": ".mcp.json"
