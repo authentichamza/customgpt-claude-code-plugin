@@ -53,7 +53,7 @@ You have access to these tools from the `customgpt-ai-rag` server:
 | `delete_agent` | Permanently delete an agent and all its data |
 | `index_files` | Upload files to the agent (respects .gitignore, skips binaries) |
 | `index_status` | Poll indexing progress — check when index is ready to query |
-| `refresh_index` | Delete only the pages for files under start_path, then re-upload them — keeps the rest of the index intact |
+| `refresh_index` | Delete pages for specific files (`paths`) or a directory (`start_path`), re-upload them, and verify `index_status=ok` |
 | `add_files` | Add specific files/folders to an existing index |
 | `list_pages` | List indexed documents in the knowledge base |
 | `delete_page` | Delete a specific indexed document by page ID |
@@ -212,7 +212,7 @@ When the user asks something that should be answered from their project:
      No index found for this project. Say "index this repo" to create one.
      ```
 2. Call `check_freshness` with the `repo_root`.
-   - If `stale_files` is non-empty: call `refresh_index` with `repo_root`, `agent_id`, and `start_path = repo_root` before querying. This re-indexes files changed outside Claude Code too (external edits, git operations, etc.).
+   - If `stale_files` is non-empty: call `refresh_index` with `repo_root`, `agent_id`, and `paths = stale_files` (NOT `start_path`) — this refreshes only the changed files. Check `indexed_ok` in the response to confirm they were indexed successfully before querying.
 3. Call `query` with the `agent_id` and the user's question.
 4. Present the answer, then show sources:
    ```

@@ -421,16 +421,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     {
       name: "refresh_index",
-      description: "Re-index files under start_path: deletes only the pages for those files, then re-uploads them. Automatically finds or creates the agent for repo_root — you do NOT need to look up or provide agent_id.",
+      description: "Re-index files: deletes their existing pages then re-uploads them. Pass 'paths' (list of specific files from check_freshness) to refresh only changed files. Pass 'start_path' to refresh an entire directory. Verifies index_status=ok after upload.",
       inputSchema: {
         type: "object",
-        required: ["repo_root", "start_path"],
+        required: ["repo_root"],
         properties: {
-          repo_root: { type: "string", description: "Absolute path to the repo root. The agent is looked up or created automatically." },
+          repo_root: { type: "string", description: "Absolute path to the repo root." },
           agent_id: { type: "number", description: "Optional. Omit to auto-resolve from repo_root." },
+          paths: {
+            type: "array",
+            items: { type: "string" },
+            description: "Specific files to refresh (relative or absolute). Use this when refreshing stale files from check_freshness.",
+          },
           start_path: {
             type: "string",
-            description: "Absolute path to re-index from.",
+            description: "Refresh all files under this directory. Used for full re-index. Ignored if 'paths' is provided.",
           },
         },
       },
@@ -820,32 +825,35 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
       // ── refresh_index ────────────────────────────────────────────────────
       case "refresh_index": {
-        const { repo_root, start_path } = a;
+        const { repo_root, start_path, paths: specificPaths } = a;
         const resolved = await resolveAgent(repo_root);
         const agent_id = a.agent_id ?? resolved.agent_id;
 
-        if (!fs.existsSync(start_path)) {
-          return ok({ deleted: 0, uploaded: 0, message: `Path not found: ${start_path}` });
+        // Resolve files: specific list (from check_freshness) or full directory scan
+        let files;
+        if (specificPaths?.length) {
+          files = specificPaths
+            .map(p => path.isAbsolute(p) ? p : path.join(repo_root, p))
+            .filter(p => fs.existsSync(p));
+        } else {
+          if (!fs.existsSync(start_path)) {
+            return ok({ deleted: 0, uploaded: 0, message: `Path not found: ${start_path}` });
+          }
+          files = collectFiles(repo_root, start_path);
         }
 
-        const files = collectFiles(repo_root, start_path);
         if (files.length === 0) {
           return ok({ deleted: 0, uploaded: 0, message: "No eligible files found to re-index." });
         }
 
-        // Build sets for matching: relative paths and their basenames
+        // Build sets for matching against API page fields
         const relPaths = new Set(files.map(f => path.relative(repo_root, f)));
         const basenames = new Set(files.map(f => path.basename(f)));
 
-        // Match a page against the files being re-indexed.
-        // Try filename and page_url against both the full relative path and basename,
-        // since different CustomGPT API versions return different fields/formats.
         const pageMatches = (p) => {
           const candidates = [p.filename, p.page_url].filter(Boolean);
           for (const c of candidates) {
-            if (relPaths.has(c)) return true;
-            if (basenames.has(c)) return true;
-            // c may be a full URL or prefixed path — check if it ends with a relPath
+            if (relPaths.has(c) || basenames.has(c)) return true;
             for (const rel of relPaths) {
               if (c.endsWith("/" + rel) || c.endsWith(rel)) return true;
             }
@@ -853,11 +861,11 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           return false;
         };
 
-        // Delete only pages matching the files about to be re-indexed
-        let page = 1;
+        // Delete old pages for these files only
+        let pg = 1;
         let deleted = 0;
         while (true) {
-          const r = await cgFetch(`/projects/${agent_id}/pages?page=${page}&per_page=100`);
+          const r = await cgFetch(`/projects/${agent_id}/pages?page=${pg}&per_page=100`);
           if (!r.ok || !r.body?.data?.pages?.data?.length) break;
           const pages = r.body.data.pages.data;
           for (const p of pages) {
@@ -867,12 +875,25 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
             }
           }
           if (pages.length < 100) break;
-          page++;
+          pg++;
         }
 
+        // Re-upload and update manifest
         const results = await uploadFiles(agent_id, files, repo_root);
         updateManifest(repo_root, results.manifest);
-        // Only clear the stale flag if all files uploaded successfully
+
+        // Verify index_status of re-uploaded files
+        const statusCheck = await cgFetch(`/projects/${agent_id}/pages?page=1&per_page=100&index_status=ok`);
+        const okPages = statusCheck.ok ? (statusCheck.body?.data?.pages?.data || []) : [];
+        const indexed_ok = files.filter(f => {
+          const rel = path.relative(repo_root, f);
+          const base = path.basename(f);
+          return okPages.some(p => {
+            const c = [p.filename, p.page_url].filter(Boolean);
+            return c.some(v => v === rel || v === base || v.endsWith("/" + rel));
+          });
+        }).map(f => path.relative(repo_root, f));
+
         if (results.failed === 0) {
           try { fs.unlinkSync(path.join(repo_root, ".rag-search-dirty")); } catch {}
         }
@@ -882,7 +903,8 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           uploaded: results.uploaded,
           failed: results.failed,
           failed_files: results.failed_files,
-          message: `🔄 Deleted ${deleted} old pages. Re-uploaded ${results.uploaded} files.`,
+          indexed_ok,
+          message: `🔄 Deleted ${deleted} old pages. Re-uploaded ${results.uploaded} files. ${indexed_ok.length} confirmed ok.`,
         });
       }
 
