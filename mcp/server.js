@@ -894,9 +894,6 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
           });
         }).map(f => path.relative(repo_root, f));
 
-        if (results.failed === 0) {
-          try { fs.unlinkSync(path.join(repo_root, ".rag-search-dirty")); } catch {}
-        }
         return ok({
           deleted,
           total_found: files.length,

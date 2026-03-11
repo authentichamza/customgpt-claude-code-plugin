@@ -15,10 +15,6 @@
     {
       "event": "PreToolUse",
       "path": "hooks/pre-tool-use.sh"
-    },
-    {
-      "event": "PostToolUse",
-      "path": "hooks/post-tool-use.sh"
     }
   ],
   "mcp": ".mcp.json"
