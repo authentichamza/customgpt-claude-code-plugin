@@ -18,10 +18,8 @@ This plugin gives Claude Code a persistent, semantically searchable index of you
 
 ```bash
 # Install from GitHub
-claude plugin add github:authentichamza/customgpt-claude-code-plugin
-
-# Or install locally during development
-claude plugin add ./customgpt-claude-code-plugin
+claude plugin marketplace add https://github.com/authentichamza/customgpt-claude-code-plugin
+claude plugin install customgpt-ai-rag
 ```
 
 On first use, Claude will prompt you for your CustomGPT.ai API key.
